@@ -1,0 +1,190 @@
+# GoReleaser v2 通用配置文件
+# 文档: https://goreleaser.com
+version: 2
+
+# 项目基本信息
+project_name: "xiaomi-router-shell-enabler"
+
+# 构建前执行的命令
+before:
+  hooks:
+    # 清理模块缓存
+    - go mod tidy
+    # 运行测试（可选，根据需要取消注释）
+    # - go test -v ./...
+
+# 构建配置
+builds:
+  - id: default
+    # 主入口文件
+    main: ./
+    # 二进制文件名
+    binary: "{{ .ProjectName }}"
+    # 环境变量
+    env:
+      - CGO_ENABLED=0
+    # 支持的操作系统
+    goos:
+      - linux
+      - darwin
+      - windows
+      - freebsd
+    # 支持的架构
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - "386"
+    # ARM 版本
+    goarm:
+      - "6"
+      - "7"
+    # 忽略的组合
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: arm
+      - goos: darwin
+        goarch: "386"
+      - goos: freebsd
+        goarch: arm
+    # 编译标志
+    flags:
+      - -trimpath
+    # 链接器标志（注入版本信息）
+    ldflags:
+      - -s -w
+      - -X github.com/bamzest/xiaomi-router-shell-enabler/pkg/version.Version={{.Version}}
+      - -X github.com/bamzest/xiaomi-router-shell-enabler/pkg/version.BuildTime={{.Date}}
+      - -X github.com/bamzest/xiaomi-router-shell-enabler/pkg/version.GitCommit={{.Commit}}
+    # 修改时间设置（提高可重现性）
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+# 通用构建选项
+gomod:
+  proxy: true
+
+# 打包配置
+archives:
+  - id: default
+    # 归档文件名格式
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # 包含的文件
+    files:
+      - README.md
+      - LICENSE*
+      # - CHANGELOG.md
+      # - config.example.yml
+      # - docs/**/*
+
+# 通用二进制文件（不压缩）
+# 适用于需要直接下载可执行文件的场景
+nfpms:
+  - id: default
+    package_name: "{{ .ProjectName }}"
+    vendor: "bamzest"
+    homepage: "https://github.com/bamzest/{{ .ProjectName }}"
+    maintainer: "bamzest"
+    description: "小米路由器Shell启用工具 - 启用SSH和Telnet访问"
+    license: "AGPL-3.0-or-later"
+    # 支持的格式
+    formats:
+      - deb
+      - rpm
+      - apk
+
+# 校验和
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# 源代码归档
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+  format: tar.gz
+
+# 快照版本配置（用于非标签构建）
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# 变更日志配置
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: "✨ 新功能"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "🐛 Bug 修复"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "⚡ 性能优化"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "♻️ 代码重构"
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: "📚 文档更新"
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: "🔧 其他变更"
+      order: 999
+
+# GitHub Release 配置
+release:
+  # GitHub 配置
+  github:
+    owner: "bamzest"
+    name: "xiaomi-router-shell-enabler"
+  # 是否创建草稿
+  draft: false
+  # 是否标记为预发布
+  prerelease: auto
+  # 模式（用于替换现有 release）
+  mode: append
+  # Release 说明模板
+  header: |
+    ## 🎉 {{ .ProjectName }} {{ .Tag }} 发布
+    **发布时间**: {{ .Date }}
+    
+    感谢所有贡献者的付出！
+  footer: |
+    ---
+    ### 📦 安装方法
+    
+    **二进制文件下载**：从上方 Assets 下载对应平台的压缩包
+    
+    **使用 Go 安装**:
+    ```bash
+    go install github.com/bamzest/{{ .ProjectName }}@{{ .Tag }}
+    ```
+    
+    **完整变更日志**: https://github.com/bamzest/{{ .ProjectName }}/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+# 公告配置（v2 新增）
+announce:
+  skip: "{{ gt .Patch 0 }}"  # 跳过补丁版本的公告
+
+# 元数据
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
